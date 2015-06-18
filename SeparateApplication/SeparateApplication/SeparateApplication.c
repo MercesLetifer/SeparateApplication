@@ -21,19 +21,134 @@
 #define ENCD_A 0		// Encoder
 #define ENCD_B 4
 #define ENCD_Z 2
-
 #define ENCD_LINE_COUNT 8000
 
+#define TST_PIN_CNT1 0			// Pin for tests
+#define TST_PIN_CNT2 1
+#define TST_PIN_CNT3 2
+#define TST_PIN_CNT4 3
+#define TST_PIN_CNT5 4
+#define TST_PIN_CNT6 5
+#define TST_PIN_CNT7 6
+#define TST_PIN_CNT8 7
+#define TST_PIN_QDEC 0
+
+#define PER_COUNTER1 999		// period of counters
+#define PER_COUNTER2 999
+#define PER_COUNTER3 999
+#define PER_COUNTER4 999
+#define PER_COUNTER5 999
+#define PER_COUNTER6 999
+#define PER_COUNTER7 999
+#define PER_COUNTER8 999
+
+//------------------------------------
+// Includes
+//------------------------------------
 #include <avr/io.h>
+#include <avr/interrupt.h>
+
+//------------------------------------
+// Global variables
+//------------------------------------
+unsigned int counter1 = 0;
+unsigned int counter2 = 0;
+
+//------------------------------------
+// Interrupt handlers
+//------------------------------------
+ISR(TCC0_OVF_vect)
+{
+	cli();
+	PORTJ_OUT |= (1 << TST_PIN_CNT1);
+	PORTJ_OUT &= ~(1 << TST_PIN_CNT1);
+}
+
+ISR(TCC1_OVF_vect)
+{
+	cli();
+	PORTJ_OUT |= (1 << TST_PIN_CNT2);
+	PORTJ_OUT |= (1 << TST_PIN_CNT2);
+}
+
+ISR(TCD0_OVF_vect)
+{
+	cli();
+	PORTJ_OUT |= (1 << TST_PIN_CNT3);
+	PORTJ_OUT &= ~(1 << TST_PIN_CNT3);
+}
+
+ISR(TCD1_OVF_vect)
+{
+	cli();
+	PORTJ_OUT |= (1 << TST_PIN_CNT4);
+	PORTJ_OUT &= ~(1 << TST_PIN_CNT4);
+}
+
+ISR(TCE0_OVF_vect)
+{
+	cli();
+	PORTJ_OUT |= (1 << TST_PIN_CNT5);
+	PORTJ_OUT &= ~(1 << TST_PIN_CNT5);
+}
+
+ISR(TCE1_OVF_vect)
+{
+	cli();
+	PORTJ_OUT |= (1 << TST_PIN_CNT6);
+	PORTJ_OUT &= ~(1 << TST_PIN_CNT6);
+}
+
+ISR(PORTC_INT0_vect)
+{
+	cli();
+	if(counter1 == PER_COUNTER7)
+	{
+		counter1 = 0;
+		PORTJ_OUT |= (1 << TST_PIN_CNT7);
+		PORTJ_OUT &= ~(1 << TST_PIN_CNT7);
+	}
+	else
+	{
+		++counter1;
+	}
+}
+
+ISR(PORTE_INT0_vect)
+{
+	cli();
+	if(counter2 == PER_COUNTER8)
+	{
+		counter2 = 0;
+		PORTJ_OUT |= (1 << TST_PIN_CNT8);
+		PORTJ_OUT &= ~(1 << TST_PIN_CNT8);
+	}
+	else
+	{
+		++counter2;
+	}
+}
+
+ISR(TCF0_OVF_vect)
+{
+	cli();
+	PORTK_OUT |= (1 << TST_PIN_QDEC);
+	PORTK_OUT &= ~(1 << TST_PIN_QDEC);
+}
+
 
 //------------------------------------
 // Prototypes
 //------------------------------------
 void Initialize();
 
+//------------------------------------
+// Entry point
+//------------------------------------
 int main(void)
 {
 	Initialize();
+	sei();
 	
 	volatile int i = 0;
 	
@@ -45,10 +160,13 @@ int main(void)
     }
 }
 
+//-------------------------------------
+// Functions
+//-------------------------------------
 void Initialize()
 {
 	//---------------Detector Initialization-----------------------
-	// Ports direction: input
+	// Pins direction: input
 	PORTC_DIR &= ~((1 << D1_CH1) | (1 << D1_CH2) | (1 << D1_CH4));
 	PORTD_DIR &= ~((1 << D1_CH3) | (1 << D2_CH1));
 	PORTE_DIR &= ~((1 << D2_CH2) | (1 << D2_CH3) | (1 << D2_CH4));
@@ -80,12 +198,12 @@ void Initialize()
 	EVSYS_CH7CTRL = EVSYS_DIGFILT_1SAMPLE_gc;
 	
 	// Set the period of counters(edge)
-	TCC0_PER = 0xFFFF;
-	TCC1_PER = 0xFFFF;
-	TCD0_PER = 0xFFFF;
-	TCD1_PER = 0xFFFF;
-	TCE0_PER = 0xFFFF;
-	TCE1_PER = 0xFFFF;
+	TCC0_PER = PER_COUNTER1;
+	TCC1_PER = PER_COUNTER2;
+	TCD0_PER = PER_COUNTER3;
+	TCD1_PER = PER_COUNTER4;
+	TCE0_PER = PER_COUNTER5;
+	TCE1_PER = PER_COUNTER6;
 	
 	// Select event channel as clock source for timers
 	TCC0_CTRLA = TC_CLKSEL_EVCH2_gc;
@@ -105,7 +223,7 @@ void Initialize()
 	
 	
 	//---------------Motor initialization-----------------------
-	// Ports direction: input
+	// Pins direction: input
 	PORTF_DIR &= ~((1 << ENCD_A) | (1 << ENCD_B) | (1 << ENCD_Z));
 	
 	// Sense configuration
@@ -121,7 +239,7 @@ void Initialize()
 	EVSYS_CH0CTRL |= (1 << EVSYS_QDIEN_bp);
 	
 	// Select the Index Recognition mode for event channel 0
-	EVSYS_CH0CTRL |= EVSYS_QDIRM_01_gc;						// set, after testing
+	EVSYS_CH0CTRL |= EVSYS_QDIRM_gp;						// set, after testing
 	
 	//  Enable quadrature decoding and digital filtering in event channel 0
 	EVSYS_CH0CTRL |= (1 << EVSYS_QDEN_bp);
@@ -145,4 +263,10 @@ void Initialize()
 	//---------------Interrupt initialization-----------------------
 	// Enable high level interrupt
 	PMIC_CTRL |= (1 << PMIC_HILVLEN_bp);
+	
+	//---------------Initialization for tests-----------------------
+	// Pin direction: output
+	PORTJ_DIR |= (1 << TST_PIN_CNT1) | (1 << TST_PIN_CNT2) | (1 << TST_PIN_CNT3) | (1 << TST_PIN_CNT4)
+	| (1 << TST_PIN_CNT5) | (1 << TST_PIN_CNT6) | (1 << TST_PIN_CNT7) | (1 << TST_PIN_CNT8);
+	PORTK_DIR |= (1 << TST_PIN_QDEC);
 }
